@@ -7,25 +7,28 @@ jobs:
   unzip:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unzip file
+      - name: Unzip uploaded file
         run: |
-          unzip project.zip -d extracted
+          unzip "plugin-auto-alt-caption-title-on-images-ai-enhanced-master.zip" -d extracted
 
-      - name: Move extracted files
+      - name: Move extracted files to repository root
         run: |
           shopt -s dotglob
           mv extracted/* .
           rm -rf extracted
-          rm -f project.zip
+          rm -f "plugin-auto-alt-caption-title-on-images-ai-enhanced-master.zip"
 
-      - name: Commit extracted files
+      - name: Commit and push changes
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
           git add .
-          git commit -m "Extracted zip file" || echo "No changes to commit"
+          git commit -m "Extract ZIP file into repository" || echo "No changes to commit"
           git push
