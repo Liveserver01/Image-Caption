@@ -1,0 +1,58 @@
+name: Auto Deploy, install dependencies, increment version and push tag
+
+on:
+  pull_request:
+    branches: [master]
+    types: [closed]
+
+jobs:
+  publish:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GIT_TOKEN }}
+          ref: 'master'
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "cinquin.andy@gmail.com"
+          git config --local user.name "CINQUIN Andy"
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install Dependencies
+        run: yarn install --force --frozen-lockfile
+
+      - name: Increment Package Version and Update Tag
+        id: version-bump
+        run: |
+          git fetch --tags
+          current_version=$(node -p "require('./package.json').version")
+          echo "Current version: $current_version"
+
+          new_version=$(npx semver -i patch $current_version)
+          echo "New version: $new_version"
+
+          while git rev-parse v$new_version >/dev/null 2>&1; do
+            new_version=$(npx semver -i patch $new_version)
+            echo "Tag v$new_version already exists. Trying next version..."
+          done
+
+          yarn version --new-version $new_version --no-git-tag-version
+          echo "version=$new_version" >> $GITHUB_OUTPUT
+
+      - name: Commit and Push Version Update
+        run: |
+          git add package.json yarn.lock
+          git commit -m "chore(release): ${{ steps.version-bump.outputs.version }}"
+          git tag ${{ steps.version-bump.outputs.version }}
+          git push origin master --follow-tags
+          git push origin refs/tags/${{ steps.version-bump.outputs.version }}
